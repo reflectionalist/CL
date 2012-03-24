@@ -17,25 +17,25 @@ instance Show Term where
     Comb oprt oprd -> "(" ++ show oprt ++ " " ++ show oprd ++ ")"
     Meta term _    -> show term
 
-type REnv = [(Name, Term)]
+type CSig = [(Name, Term)]
 
-searchREnv :: Name -> REnv -> Term
-searchREnv name renv = case lookup name renv of
+searchREnv :: Name -> CSig -> Term
+searchREnv name csig = case lookup name csig of
   Nothing   -> error $ "unknown combinator: " ++ name
   Just term -> term
 
-evaluate :: Term -> REnv -> Term
-evaluate term renv = case term of
-  Atom name      -> searchREnv name renv
-  Comb oprt oprd -> combine (evaluate oprt renv) oprd
+evaluate :: Term -> CSig -> Term
+evaluate term csig = case term of
+  Atom name      -> searchREnv name csig
+  Comb oprt oprd -> combine (evaluate oprt csig) oprd
   _              -> term
 
 combine :: Term -> Term -> Term
 combine (Meta _ f) oprd = f oprd
 
-core :: REnv
-core =
+csig :: CSig
+csig =
   [ ("I", Meta (Atom "I") $ \x -> x)
   , ("K", Meta (Atom "K") $ \x -> Meta (Comb (Atom "K") x) $ \y -> x)
-  , ("S", Meta (Atom "S") $ \f -> Meta (Comb (Atom "S") f) $ \g -> Meta (Comb (Comb (Atom "S") f) g) $ \a -> evaluate (Comb (Comb f a) (Comb g a)) core) ]
+  , ("S", Meta (Atom "S") $ \f -> Meta (Comb (Atom "S") f) $ \g -> Meta (Comb (Comb (Atom "S") f) g) $ \a -> evaluate (Comb (Comb f a) (Comb g a)) csig) ]
 
