@@ -1,41 +1,41 @@
-module Evaluator
-  ( Term(Atom, Comb)
-  , evaluate )
+module Normalizer
+  ( Form(Atom, Comb)
+  , normalize )
 where
 
 
 type Name = String
 
-data Term
+data Form
   = Atom Name
-  | Comb Term Term
-  | Meta Term (Term -> Term)
+  | Comb Form Form
+  | Meta Form (Form -> Form)
 
-instance Show Term where
-  show term = case term of
+instance Show Form where
+  show form = case form of
     Atom name      -> name
-    Comb oprt oprd -> "(" ++ show oprt ++ " " ++ show oprd ++ ")"
-    Meta term _    -> show term
+    Comb optr opnd -> "(" ++ show optr ++ " " ++ show opnd ++ ")"
+    Meta form _    -> show form
 
-type REnv = [(Name, Term)]
+type REnv = [(Name, Form)]
 
-searchREnv :: Name -> REnv -> Term
+searchREnv :: Name -> REnv -> Form
 searchREnv name renv = case lookup name renv of
   Nothing   -> error $ "unknown combinator: " ++ name
-  Just term -> term
+  Just form -> form
 
-evaluate :: Term -> REnv -> Term
-evaluate term renv = case term of
+normalize :: Form -> REnv -> Form
+normalize form renv = case form of
   Atom name      -> searchREnv name renv
-  Comb oprt oprd -> combine (evaluate oprt renv) oprd
-  _              -> term
+  Comb optr opnd -> reduce (normalize optr renv) opnd
+  _              -> form
 
-combine :: Term -> Term -> Term
-combine (Meta _ f) oprd = f oprd
+reduce :: Form -> Form -> Form
+reduce (Meta _ f) opnd = f opnd
 
 core :: REnv
 core =
   [ ("I", Meta (Atom "I") $ \x -> x)
   , ("K", Meta (Atom "K") $ \x -> Meta (Comb (Atom "K") x) $ \y -> x)
-  , ("S", Meta (Atom "S") $ \f -> Meta (Comb (Atom "S") f) $ \g -> Meta (Comb (Comb (Atom "S") f) g) $ \a -> evaluate (Comb (Comb f a) (Comb g a)) core) ]
+  , ("S", Meta (Atom "S") $ \f -> Meta (Comb (Atom "S") f) $ \g -> Meta (Comb (Comb (Atom "S") f) g) $ \a -> normalize (Comb (Comb f a) (Comb g a)) core) ]
 
