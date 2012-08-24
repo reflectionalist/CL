@@ -19,14 +19,14 @@ instance Show Term where
 
 type REnv = [(Name, Term)]
 
-searchREnv :: Name -> REnv -> Term
-searchREnv name renv = case lookup name renv of
+searchREnv :: REnv -> Name -> Term
+searchREnv renv name = case lookup name renv of
   Nothing   -> error $ "unknown combinator: " ++ name
   Just term -> term
 
 normalize :: REnv -> Term -> Term
 normalize renv term = case term of
-  Atom name      -> searchREnv name renv
+  Atom name      -> searchREnv renv name
   Comb optr opnd -> reduce (normalize renv optr) opnd
   _              -> term
 
