@@ -1,41 +1,99 @@
-module Normalizer
-  ( Term(Atom, Comb)
-  , normalize )
+module CTm
+  ( CTm(..)
+  , var, cmb, cS, cK, cI, cR, cU, cY
+  , fvs, mem, norm, redn, red1 )
 where
 
 
-type Name = String
+import Prelude hiding (abs)
+import Data.Set (Set, member, empty, singleton, union, delete)
 
-data Term
-  = Atom Name
-  | Comb Term Term
-  | Meta Term (Term -> Term)
 
-instance Show Term where
-  show term = case term of
-    Atom name      -> name
-    Comb optr opnd -> "(" ++ show optr ++ " " ++ show opnd ++ ")"
-    Meta term _    -> show term
+type Nom = String
 
-type REnv = [(Name, Term)]
+data CTm
+  = Var Nom
+  | Atm Nom
+  | Cmb CTm CTm
 
-searchREnv :: REnv -> Name -> Term
-searchREnv renv name = case lookup name renv of
-  Nothing   -> error $ "unknown combinator: " ++ name
-  Just term -> term
+instance Show CTm where
+  show ctm = case ctm of
+    Var nom           -> nom
+    Atm nom           -> nom
+    Cmb opr (Var nom) -> show opr ++ " " ++ nom
+    Cmb opr (Atm nom) -> show opr ++ " " ++ nom
+    Cmb opr opd       -> show opr ++ " " ++ "(" ++ show opd ++ ")"
 
-normalize :: REnv -> Term -> Term
-normalize renv term = case term of
-  Atom name      -> searchREnv renv name
-  Comb optr opnd -> reduce (normalize renv optr) opnd
-  _              -> term
 
-reduce :: Term -> Term -> Term
-reduce (Meta _ f) opnd = f opnd
+var :: Nom -> CTm
+var = Var
 
-core :: REnv
-core =
-  [ ("I", Meta (Atom "I") $ \x -> x)
-  , ("K", Meta (Atom "K") $ \x -> Meta (Comb (Atom "K") x) $ \y -> x)
-  , ("S", Meta (Atom "S") $ \f -> Meta (Comb (Atom "S") f) $ \g -> Meta (Comb (Comb (Atom "S") f) g) $ \a -> normalize core $ Comb (Comb f a) (Comb g a)) ]
+cmb :: [CTm] -> CTm
+cmb = foldl1 Cmb
+
+cS :: CTm
+cS = Atm "S"
+
+cK :: CTm
+cK = Atm "K"
+
+cI :: CTm
+cI = cmb [cS, cK, cK]
+
+cR :: CTm
+cR = cmb [cS, cI, cI]
+
+cU :: CTm
+cU = cmb [ cS
+         , cmb [ cS, cS, cmb [cS, cK, cK] ]
+         , cmb [ cS
+               , cmb [cS, cS, cmb[cS, cmb[cS, cS, cK], cK]]
+               , cmb [cS, cmb [cS, cS, cK], cK]] ]
+
+cY :: CTm
+cY = cmb [cR, cU]
+
+
+fvs :: CTm -> Set Nom
+fvs ctm = case ctm of
+  Var nom     -> singleton nom
+  Atm _       -> empty
+  Cmb opr opd -> union (fvs opr) (fvs opd)
+
+mem :: Ord a => a -> Set a -> Bool
+mem = member
+
+norm :: CTm -> CTm
+norm ctm = case ctm of
+  Cmb opr opd -> case norm opr of
+    Cmb (Cmb (Atm "S") s) t -> norm $ cmb [s, opd, cmb [t, opd]]
+    Cmb (Atm "K")         s -> norm s
+    nf                      -> cmb [nf, norm opd]
+  _                         -> ctm
+
+isNF :: CTm -> Bool
+isNF ctm = case ctm of
+  Var _                   -> True
+  Atm _                   -> True
+  Cmb (Cmb (Atm "S") r) s -> isNF r && isNF s
+  Cmb (Atm "S")         r -> isNF r
+  Cmb (Atm "K")         s -> isNF s
+  _                       -> False
+
+redn :: Int -> CTm -> [CTm]
+redn = red []
+  where red stps n ctm
+          | isNF ctm  = stps
+          | n == 0    = stps
+          | otherwise = let stp = red1 ctm
+                         in red (stp : stps)
+                                (if n < 0 then n else n - 1)
+                                stp
+
+red1 :: CTm -> CTm
+red1 ctm = case ctm of
+  Cmb (Cmb (Cmb (Atm "S") r) s) t -> cmb [r, t, cmb [s, t]]
+  Cmb (Cmb (Atm "K") s)         _ -> s
+  Cmb opr opd | isNF opr          -> cmb [opr, red1 opd]
+              | otherwise         -> cmb [red1 opr, opd]
 
