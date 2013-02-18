@@ -1,7 +1,7 @@
 module CTm
   ( CTm(..)
   , var, cmb, cS, cK, cI, cR, cU, cY
-  , fvs, mem, norm, redn, red1 )
+  , fvs, mem, norm, isNF, red1, redn )
 where
 
 
@@ -45,10 +45,8 @@ cR = cmb [cS, cI, cI]
 
 cU :: CTm
 cU = cmb [ cS
-         , cmb [ cS, cS, cmb [cS, cK, cK] ]
-         , cmb [ cS
-               , cmb [cS, cS, cmb[cS, cmb[cS, cS, cK], cK]]
-               , cmb [cS, cmb [cS, cS, cK], cK]] ]
+         , cmb [cS, cmb [cK, cS], cK]
+         , cmb [cK, cmb [cS, cI, cI]] ]
 
 cY :: CTm
 cY = cmb [cR, cU]
@@ -66,8 +64,8 @@ mem = member
 norm :: CTm -> CTm
 norm ctm = case ctm of
   Cmb opr opd -> case norm opr of
-    Cmb (Cmb (Atm "S") s) t -> norm $ cmb [s, opd, cmb [t, opd]]
-    Cmb (Atm "K")         s -> norm s
+    Cmb (Cmb (Atm "S") r) s -> norm $ cmb [r, opd, cmb [s, opd]]
+    Cmb (Atm "K") s         -> norm s
     nf                      -> cmb [nf, norm opd]
   _                         -> ctm
 
@@ -76,9 +74,16 @@ isNF ctm = case ctm of
   Var _                   -> True
   Atm _                   -> True
   Cmb (Cmb (Atm "S") r) s -> isNF r && isNF s
-  Cmb (Atm "S")         r -> isNF r
-  Cmb (Atm "K")         s -> isNF s
+  Cmb (Atm "S") r         -> isNF r
+  Cmb (Atm "K") s         -> isNF s
   _                       -> False
+
+red1 :: CTm -> CTm
+red1 ctm = case ctm of
+  Cmb (Cmb (Cmb (Atm "S") r) s) t -> cmb [r, t, cmb [s, t]]
+  Cmb (Cmb (Atm "K") s) _         -> s
+  Cmb opr opd | isNF opr          -> cmb [opr, red1 opd]
+              | otherwise         -> cmb [red1 opr, opd]
 
 redn :: Int -> CTm -> [CTm]
 redn = red []
@@ -89,11 +94,4 @@ redn = red []
                          in red (stp : stps)
                                 (if n < 0 then n else n - 1)
                                 stp
-
-red1 :: CTm -> CTm
-red1 ctm = case ctm of
-  Cmb (Cmb (Cmb (Atm "S") r) s) t -> cmb [r, t, cmb [s, t]]
-  Cmb (Cmb (Atm "K") s)         _ -> s
-  Cmb opr opd | isNF opr          -> cmb [opr, red1 opd]
-              | otherwise         -> cmb [red1 opr, opd]
 
