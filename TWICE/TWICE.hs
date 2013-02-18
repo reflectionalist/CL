@@ -1,5 +1,7 @@
 module TWICE
-  (var, cmb, cT, cW, cI, cC, cE)
+  ( var, cmb, cT, cW, cI, cC, cE
+  , norm, isNF, red1, redn )
+where
 
 
 type Nom = String
@@ -41,11 +43,43 @@ cE = Atm "E"
 
 norm :: CTm -> CTm
 norm ctm = case ctm of
-  Cmb (Cmb (Cmb (Atm "T") r) s) t -> norm $ cmb [r, cmb [s, t]]
-  Cmb (Cmb (Cmb (Atm "W") r) s) t -> norm $ cmb [r, s]
-  Cmb (Atm "I") t                 -> norm $ t
-  Cmb (Cmb (Atm "C") r) s         -> norm $ cmb [r, s, s]
-  Cmb (Cmb (Cmb (Atm "E") r) s) t -> norm $ cmb [r, t, s] 
-  Cmb opr opd                     -> norm $ cmb [norm opr, norm opd]
-  _                               -> ctm
+  Cmb opr opd -> case norm opr of
+    Cmb (Cmb (Atm "T") r) s -> norm $ cmb [r, cmb [s, opd]]
+    Cmb (Cmb (Atm "W") r) s -> norm $ cmb [r, s]
+    Atm "I"                 -> norm $ opd
+    Cmb (Atm "C") s         -> norm $ cmb [s, opd, opd]
+    Cmb (Cmb (Atm "E") r) s -> norm $ cmb [r, opd, s]
+    nf                      -> cmb [nf, norm opd]
+  _                         -> ctm
+
+isNF :: CTm -> Bool
+isNF ctm = case ctm of
+  Atm _                   -> True
+  Var _                   -> True
+  Cmb (Cmb (Atm "T") r) s -> isNF r && isNF s
+  Cmb (Atm "T") r         -> isNF r
+  Cmb (Atm "C") r         -> isNF r
+  Cmb (Cmb (Atm "E") r) s -> isNF r && isNF s
+  Cmb (Atm "E") r         -> isNF r
+  _                       -> False
+
+red1 :: CTm -> CTm
+red1 ctm = case ctm of
+  Cmb (Cmb (Cmb (Atm "T") r) s) t -> cmb [r, t, cmb [s, t]]
+  Cmb (Cmb (Cmb (Atm "K") r) s) _ -> cmb [r, s]
+  Cmb (Atm "I") t                 -> t
+  Cmb (Cmb (Atm "C") s) t         -> cmb [s, t, t]
+  Cmb (Cmb (Cmb (Atm "E") r) s) t -> cmb [r, t, s]
+  Cmb opr opd | isNF opr          -> cmb [opr, red1 opd]
+              | otherwise         -> cmb [red1 opr, opd]
+
+redn :: Int -> CTm -> [CTm]
+redn = red []
+  where red stps n ctm
+          | isNF ctm  = stps
+          | n == 0    = stps
+          | otherwise = let stp = red1 ctm
+                         in red (stp : stps)
+                                (if n < 0 then n else n - 1)
+                                stp
 
