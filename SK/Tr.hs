@@ -1,12 +1,10 @@
-module Trl
+module Tr
   (ltoc, ctol)
 where
 
 
-import Prelude hiding (abs)
-import LTm as L
-import CTm as C
-import Data.Set (Set, member, empty, singleton, insert, delete, union)
+import LC as L
+import SK as C
 
 
 ltoc :: LTm -> CTm

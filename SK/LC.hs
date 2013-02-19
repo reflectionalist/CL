@@ -1,4 +1,4 @@
-module LTm
+module LC
   ( LTm(..)
   , var, abs, app
   , fvs, mem )
