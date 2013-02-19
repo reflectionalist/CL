@@ -4,82 +4,50 @@ module TWICE
 where
 
 
-type Nom = String
+import CL
 
-data CTm
-  = Var Nom
-  | Atm Nom
-  | Cmb CTm CTm
 
-instance Show CTm where
-  show ctm = case ctm of
-    Var nom           -> nom
-    Atm nom           -> nom
-    Cmb opr (Var nom) -> show opr ++ " " ++ nom
-    Cmb opr (Atm nom) -> show opr ++ " " ++ nom
-    Cmb opr opd       -> show opr ++ " " ++ "(" ++ show opd ++ ")"
+data TWICE
 
-var :: Nom -> CTm
-var = Var
 
-cmb :: [CTm] -> CTm
-cmb = foldl1 Cmb
-
-cT :: CTm
+cT :: CTm TWICE
 cT = Atm "T"
 
-cW :: CTm
+cW :: CTm TWICE
 cW = Atm "W"
 
-cI :: CTm
+cI :: CTm TWICE
 cI = Atm "I"
 
-cC :: CTm
+cC :: CTm TWICE
 cC = Atm "C"
 
-cE :: CTm
+cE :: CTm TWICE
 cE = Atm "E"
 
 
-norm :: CTm -> CTm
-norm ctm = case ctm of
-  Cmb opr opd -> case norm opr of
-    Cmb (Cmb (Atm "T") r) s -> norm $ cmb [r, cmb [s, opd]]
-    Cmb (Cmb (Atm "W") r) s -> norm $ cmb [r, s]
-    Atm "I"                 -> norm $ opd
-    Cmb (Atm "C") s         -> norm $ cmb [s, opd, opd]
-    Cmb (Cmb (Atm "E") r) s -> norm $ cmb [r, opd, s]
-    nf                      -> cmb [nf, norm opd]
-  _                         -> ctm
+instance CL TWICE where
+  disp ctm = case ctm of
+    Cmb (Cmb (Atm "T") r) s -> Left $ \t -> cmb [r, cmb [s, t]]
+    Cmb (Cmb (Atm "W") r) s -> Left $ \_ -> cmb [r, s]
+    Atm "I"                 -> Left $ \t -> t
+    Cmb (Atm "C") s         -> Left $ \t -> cmb [s, t, t]
+    Cmb (Cmb (Atm "E") r) s -> Left $ \t -> cmb [r, t, s]
+    nf                      -> Right nf
 
-isNF :: CTm -> Bool
-isNF ctm = case ctm of
-  Atm _                   -> True
-  Var _                   -> True
-  Cmb (Cmb (Atm "T") r) s -> isNF r && isNF s
-  Cmb (Atm "T") r         -> isNF r
-  Cmb (Atm "C") r         -> isNF r
-  Cmb (Cmb (Atm "E") r) s -> isNF r && isNF s
-  Cmb (Atm "E") r         -> isNF r
-  _                       -> False
+  isnc ctm = case ctm of
+    Cmb (Cmb (Atm "T") r) s -> isNF r && isNF s
+    Cmb (Atm "T") r         -> isNF r
+    Cmb (Atm "C") r         -> isNF r
+    Cmb (Cmb (Atm "E") r) s -> isNF r && isNF s
+    Cmb (Atm "E") r         -> isNF r
+    _                       -> False
 
-red1 :: CTm -> CTm
-red1 ctm = case ctm of
-  Cmb (Cmb (Cmb (Atm "T") r) s) t -> cmb [r, t, cmb [s, t]]
-  Cmb (Cmb (Cmb (Atm "K") r) s) _ -> cmb [r, s]
-  Cmb (Atm "I") t                 -> t
-  Cmb (Cmb (Atm "C") s) t         -> cmb [s, t, t]
-  Cmb (Cmb (Cmb (Atm "E") r) s) t -> cmb [r, t, s]
-  Cmb opr opd | isNF opr          -> cmb [opr, red1 opd]
-              | otherwise         -> cmb [red1 opr, opd]
-
-redn :: Int -> CTm -> [CTm]
-redn = red []
-  where red stps n ctm
-          | isNF ctm  = stps
-          | n == 0    = stps
-          | otherwise = let stp = red1 ctm
-                         in red (stp : stps)
-                                (if n < 0 then n else n - 1)
-                                stp
+  redc ctm = case ctm of
+    Cmb (Cmb (Cmb (Atm "T") r) s) t -> Just $ cmb [r, t, cmb [s, t]]
+    Cmb (Cmb (Cmb (Atm "K") r) s) _ -> Just $ cmb [r, s]
+    Cmb (Atm "I") t                 -> Just $ t
+    Cmb (Cmb (Atm "C") s) t         -> Just $ cmb [s, t, t] 
+    Cmb (Cmb (Cmb (Atm "E") r) s) t -> Just $ cmb [r, t, s]
+    _                               -> Nothing
 
