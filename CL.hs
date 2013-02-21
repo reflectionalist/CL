@@ -1,7 +1,8 @@
 module CL
   ( Nom, CTm(..), var, cmb
   , fvs, mem
-  , CL(..) )
+  , CL(..)
+  , norm, isNF, red1, redn )
 where
 
 
@@ -45,33 +46,33 @@ class CL c where
   isnc :: CTm c -> Bool
   redc :: CTm c -> Maybe (CTm c)
 
-  norm :: CTm c -> CTm c
-  norm ctm = case ctm of
-    Cmb opr opd -> case disp (norm opr) of
-      Left ctn  -> norm (ctn opd)
-      Right nf  -> cmb [nf, norm opd]
-    _           -> ctm
+norm :: CL c => CTm c -> CTm c
+norm ctm = case ctm of
+  Cmb opr opd -> case disp (norm opr) of
+    Left ctn  -> norm (ctn opd)
+    Right nf  -> cmb [nf, norm opd]
+  _           -> ctm
 
-  isNF :: CTm c -> Bool
-  isNF ctm = case ctm of
-    Var _   -> True
-    Atm _   -> True
-    _       -> isnc ctm
+isNF :: CL c => CTm c -> Bool
+isNF ctm = case ctm of
+  Var _   -> True
+  Atm _   -> True
+  _       -> isnc ctm
 
-  red1 :: CTm c -> CTm c
-  red1 ctm = case redc ctm of
-    Just stp -> stp
-    Nothing  -> case ctm of
-      Cmb opr opd | isNF opr  -> cmb [opr, red1 opd]
-                  | otherwise -> cmb [red1 opr, opd]
+red1 :: CL c => CTm c -> CTm c
+red1 ctm = case redc ctm of
+  Just stp -> stp
+  Nothing  -> case ctm of
+    Cmb opr opd | isNF opr  -> cmb [opr, red1 opd]
+                | otherwise -> cmb [red1 opr, opd]
 
-  redn :: Int -> CTm c -> [CTm c]
-  redn = red []
-    where red stps n ctm
-            | isNF ctm  = stps
-            | n == 0    = stps
-            | otherwise = let stp = red1 ctm
-                          in  red (stp : stps)
-                                  (if n < 0 then n else n - 1)
-                                  stp
- 
+redn :: CL c => Int -> CTm c -> [CTm c]
+redn = red []
+  where red stps n ctm
+          | isNF ctm  = stps
+          | n == 0    = stps
+          | otherwise = let stp = red1 ctm
+                        in  red (stp : stps)
+                                (if n < 0 then n else n - 1)
+                                stp
+
