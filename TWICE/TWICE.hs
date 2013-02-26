@@ -1,5 +1,5 @@
 module TWICE
-  ( var, cmb, cT, cW, cI, cC, cE
+  ( var, cmb, cT, cW, cI, cC, cE, cS, cK, cU
   , norm, isNF, red1, redn )
 where
 
@@ -24,6 +24,19 @@ cC = Atm "C"
 
 cE :: CTm TWICE
 cE = Atm "E"
+
+cS :: CTm TWICE
+cS = cmb [ cT
+         , cmb [cT, cC]
+         , cmb [cT, cT, cE] ]
+
+cK :: CTm TWICE
+cK = cmb [cW, cI]
+
+cU :: CTm TWICE
+cU = cmb [ cS
+         , cmb [cS, cmb [cK, cS], cK]
+         , cmb [cK, cmb [cS, cI, cI]] ]
 
 
 instance CL TWICE where
